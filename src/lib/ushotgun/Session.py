@@ -1,25 +1,71 @@
 import os
+import json
 import shotgun_api3
+
+class SessionConfigError(Exception):
+    """
+    Session Config Error.
+    """
 
 class Session(object):
     """
     Singleton shotgun session.
     """
-    __session = None
+
+    __sessionSingleton = None
+    __sessionConfigEnv = 'USHOTGUN_SESSION_CONFIG_PATH'
+    __shotgunUrlEnv = 'UMEDIA_SHOTGUN_URL'
 
     @classmethod
-    def get(cls):
+    def get(cls, config='default'):
         """
         Return the current session.
         """
-        if cls.__session is None:
+        if cls.__sessionSingleton is None:
+            config = cls.__loadConfig(config)
 
-            # taking care of the authentication, so we don't need to do that in the task.
-            # this is going to be available as a global object
-            cls.__session = shotgun_api3.Shotgun(
-                os.environ['UMEDIA_SHOTGUN_URL'],
-                script_name="Toolkit",
-                api_key="7839b54042ddfecdc6d0bd27e72c4499d5c04516f96dc1ff30d9bb7ac084ec7e"
+            # creating a singleton session object
+            cls.__sessionSingleton = shotgun_api3.Shotgun(
+                os.environ[cls.__shotgunUrlEnv],
+                script_name=config['auth']['scriptName'],
+                api_key=config['auth']['apiKey']
             )
 
-        return cls.__session
+        return cls.__sessionSingleton
+
+    @classmethod
+    def __loadConfig(cls, name):
+        """
+        Return a dict with the session configuration.
+        """
+        configDir = os.environ.get(cls.__sessionConfigEnv, '')
+        if not configDir:
+            raise SessionConfigError(
+                'Environment "{}" is not defined!'.format(
+                    cls.__sessionConfigEnv
+                )
+            )
+
+        # looking for the configuration under the config path
+        configFile = None
+        for configDirectory in filter(os.path.exists, configDir.split(':')):
+            targetConfig = os.path.join(configDir, '{}.json'.format(name))
+            if os.path.exists(targetConfig):
+                configFile = targetConfig
+                break
+
+        # making sure the configuration file exists
+        if not configFile:
+            raise SessionConfigError(
+                'Could not find configuration "{}.json" under {} environment'.format(
+                        name,
+                        cls.__sessionConfigEnv
+                    )
+                )
+
+        # loading configuration json file
+        result = {}
+        with open(configFile) as jsonFile:
+            result = json.load(jsonFile)
+
+        return result
