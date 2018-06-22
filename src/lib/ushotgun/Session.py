@@ -14,7 +14,7 @@ class Session(object):
 
     __sessionSingleton = None
     __sessionConfigEnv = 'USHOTGUN_SESSION_CONFIG_PATH'
-    __shotgunUrlEnv = 'UMEDIA_SHOTGUN_URL'
+    __shotgunUrlEnv = 'USHOTGUN_URL'
 
     @classmethod
     def get(cls, config='default'):
